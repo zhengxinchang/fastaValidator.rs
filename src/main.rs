@@ -2,7 +2,7 @@ use fancy_regex::Regex;
 use std::env;
 use std::fs;
 use std::io::Read;
-
+use std::collections::HashMap;
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
 #[derive(Debug)]
@@ -87,6 +87,24 @@ fn validate_seq_n_pct(seq_len: &i32, previous_seqid: &String, seq_n_count: &i32)
                 "For SARS-CoV-2 submission, the proportion of unknown bases in the sequence exceeds 50% is not allowed. Found {seq_n_count}/{seq_len}({seq_n_pct_scaled}%) for sequence '{previous_seqid}' "
             )
         }
+    }
+}
+
+fn validate_seqid_unique( report_list:&Vec<Report>){
+    
+    // let mut seqid_list: Vec<String> = Vec::new();
+    let mut seqid_map:HashMap<&str,&str> = HashMap::new();
+    
+    for x in report_list.iter() {
+        let seqid_value = x.seqid.as_str();
+        if seqid_map.contains_key(seqid_value) {
+            eprintln!(
+                "Found duplicate sequence id: {seqid_value}"
+            )
+        }else{
+            seqid_map.insert(seqid_value, "");
+        }
+        
     }
 }
 
@@ -307,6 +325,8 @@ fn main() {
     previous_report.seqid = previous_seqid;
     report_list.push(previous_report);
 
+
+    validate_seqid_unique(&report_list);
     /*print 2seqidcheck.txt */
     println!("seqid\torganism\tgenetic_code\tmoltype\ttopology\tstrand");
     for x in report_list.iter() {
