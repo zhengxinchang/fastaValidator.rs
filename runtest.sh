@@ -1,0 +1,1 @@
+ time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/GCF_000001405.40_GRCh38.p14_genomic.fna 

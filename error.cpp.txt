@@ -1,0 +1,8 @@
+Found invalid nucleotide: * at line 3, column 3
+Found invalid nucleotide: & at line 3, column 9
+Found invalid seqid: >1e^q3. Seqid must starts with a letter.
+Found invalid character: '^' in seqid: >1e^q3. Only letters, numbers, '_', '-', '*', '#', '.', ':' are permitted.
+For SARS-CoV-2 submission, sequence length of: >seq1 must be between 50 and 30,000. SeqLength of >seq1: 18
+Found invalid seqid: >2eq4. Seqid must starts with a letter.
+For SARS-CoV-2 submission, sequence length of: >1e^q3 must be between 50 and 30,000. SeqLength of >1e^q3: 16
+For SARS-CoV-2 submission, sequence length of: >2eq4 must be between 50 and 30,000. SeqLength of >2eq4: 13

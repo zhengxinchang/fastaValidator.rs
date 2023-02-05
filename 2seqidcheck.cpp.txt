@@ -1,0 +1,4 @@
+seqid	organism	genetic_code	moltype	topology	strand
+>seq1	Severe acute respiratory syndrome coronavirus 2	1	genomic RNA	linear	single
+>1e^q3	Severe acute respiratory syndrome coronavirus 2	1	genomic RNA	linear	single
+>2eq4	Severe acute respiratory syndrome coronavirus 2	1	genomic RNA	linear	single
