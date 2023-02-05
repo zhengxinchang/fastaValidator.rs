@@ -33,8 +33,6 @@ fn validate_seq_len(seqid: &String, seq_len: &i32, min_len: &i32, max_len: &i32)
         return true;
     }
     if (seq_len < min_len) || (seq_len > max_len) {
-        // eprintln!("SeqLen {}", seq_len);
-
         eprintln!("For SARS-CoV-2 submission, sequence length must be between {min_len} and {max_len}. SeqLength of {seqid} is {seq_len}", );
         return false;
     } else {
@@ -65,7 +63,9 @@ fn validate_seq_id(seqid: &String) -> bool {
             }
             let seqid_len = seqid.len();
             if seqid_len > 24 {
-                eprintln!("Seqid max length is 23, found length of {seqid_len} for seqid: {seqid}.");
+                eprintln!(
+                    "Seqid max length is 23, found length of {seqid_len} for seqid: {seqid}."
+                );
             }
         }
         None => {
@@ -76,16 +76,15 @@ fn validate_seq_id(seqid: &String) -> bool {
     return flag;
 }
 
-
-fn validate_seq_n_pct(seq_len: &i32,previous_seqid: &String,seq_n_count:&i32){
+fn validate_seq_n_pct(seq_len: &i32, previous_seqid: &String, seq_n_count: &i32) {
     // let mut seq_n_pct:f32 = 0.0;
-    if *seq_len > 0 { // Rust有自动解引用的方法的，但是有的时候需要手动。
-        let seq_n_pct = (*seq_n_count as f32) /(*seq_len as f32);
-        if seq_n_pct >=0.50  {
-            let seq_n_pct_scaled = seq_n_pct * 100.0 ;
+    if *seq_len > 0 {
+        // Rust有自动解引用的方法的，但是有的时候需要手动。
+        let seq_n_pct = (*seq_n_count as f32) / (*seq_len as f32);
+        if seq_n_pct >= 0.50 {
+            let seq_n_pct_scaled = seq_n_pct * 100.0;
             eprintln!(
                 "For SARS-CoV-2 submission, the proportion of unknown bases in the sequence exceeds 50% is not allowed. Found {seq_n_count}/{seq_len}({seq_n_pct_scaled}%) for sequence '{previous_seqid}' "
-                
             )
         }
     }
@@ -97,16 +96,13 @@ fn get_seqid(defline: &String) -> String {
     let re = Regex::new(r"^(>.*?)[\s|\n]").unwrap();
     let caps = re.captures(defline);
     match caps {
-        Ok(t) => {
-            match t {
-                Some(x) => {
-                    return x.get(1).unwrap().as_str().to_string();
-                }
-                None => return "".to_string(),
+        Ok(t) => match t {
+            Some(x) => {
+                return x.get(1).unwrap().as_str().to_string();
             }
-        }
+            None => return "".to_string(),
+        },
         Err(_e) => {
-            // println!("Can not extract seqid from defline {defline},beacuse {e}");
             return "".to_string();
         }
     };
@@ -119,7 +115,7 @@ fn main() {
         println!("Please specify fasta file");
         return;
     }
-    const BUF_SIZE: usize = 1024  * 512 ;
+    const BUF_SIZE: usize = 2012 * 1024 * 4;
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
     let _fa_file: &String = &args[1];
@@ -134,11 +130,11 @@ fn main() {
     let mut previous_seqid: String = String::from("");
     let mut line_number: i32 = 1;
     let mut seq_len: i32 = -1;
-    let mut seq_n_count:i32 = 0;
+    let mut seq_n_count: i32 = 0;
     let mut chr_pos: i32 = 0;
+    // let mut debug_char_list: String = String::from("");
 
     while let Ok(num_bytes) = file.read(&mut buf) {
-        // println!("{}", num_bytes);
         if num_bytes == 0 {
             break;
         }
@@ -162,10 +158,12 @@ fn main() {
         for c in buf.iter() {
             /* 初始化的buf为0u8, 因此当*c的值为 0u8的时候，说明这个buf没有占满，但是不需要处理了。
             当判断 c 为 0u8 也就是字符 '\0'的时候，退出循环 */
-            if *c == 0u8 {
+
+            if *c == '\0' as u8 {
                 break;
             }
             let cc = *c as char;
+
             /*统计行数并且重置chr的位置 */
             if cc == '\n' {
                 line_number += 1;
@@ -177,14 +175,15 @@ fn main() {
                     defline.push(cc);
 
                     /*判断序列是否为N结尾,程序靠后部分还有一段代码 */
-                    // println!("previous_2nd_char:{previous_2nd_char},previous_char:{previous_char},cc:{cc}");
+                    let previous_seqid = get_seqid(&previous_defline);
                     if (previous_2nd_char == 'N') || (previous_2nd_char == 'n') {
                         eprintln!(
                             "Found invalid 'N' at end of sequence '{}'. It should not end with 'N' or 'n'",
                             previous_seqid
                         )
                     }
-                }else {
+                } else {
+                    let previous_seqid = get_seqid(&previous_defline);
                     eprintln!(
                         "Found invalid '>' at sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.",
                         previous_seqid
@@ -192,8 +191,11 @@ fn main() {
                 }
             } else {
                 /*判断defline结束，开始处理defline */
-                if (previous_char == '\n') && (cc != '>') && (is_in_defline == true) {
+                if (previous_char == '\n') && (is_in_defline == true) {
                     is_in_defline = false;
+
+                    previous_seqid = get_seqid(&previous_defline);
+
                     if previous_defline.len() > 0 {
                         validate_seq_id(&previous_seqid);
                         validate_seq_len(&previous_seqid, &seq_len, &MIN_LEN, &MAX_LEN);
@@ -202,11 +204,13 @@ fn main() {
                         report_list.push(previous_report);
 
                         /*validate N percent, 循环退出后再次调用一次，处理最后的序列 */
-                        validate_seq_n_pct(&seq_len,&previous_seqid,&seq_n_count);
+                        validate_seq_n_pct(&seq_len, &previous_seqid, &seq_n_count);
                     }
                     /*重置*/
+
+                    // let debug_char_list_len = debug_char_list.len();
+                    // println!("seqlen:{seq_len} --- defline {previous_defline} -- debug_char_list_len {debug_char_list_len}");
                     previous_defline = defline.clone();
-                    previous_seqid = get_seqid(&previous_defline);
                     defline = String::from("");
                     seq_len = 0;
                     seq_n_count = 0;
@@ -217,15 +221,18 @@ fn main() {
                 } else {
                     /*这里是校验每个字符，统计长度 */
                     chr_pos += 1;
-                    if cc != '\n'{
-                        seq_len += 1; // 忽略换行符
+
+                    if cc != '\n' {
+                        seq_len = seq_len + 1; // 忽略换行符
+                                               // debug_char_list.push(cc);
                     }
-                    
+
                     /* 判断开始为N的报错 */
                     if (seq_len == 1) && ((cc == 'N') || (cc == 'n')) {
+                        let previous_seqid_local = get_seqid(&previous_defline);
                         eprintln!(
                             "Found invalid 'N' at start of sequence '{}'. It should not start with 'N' or 'n'",
-                            previous_seqid
+                            previous_seqid_local
                         )
                     }
                     match cc {
@@ -237,8 +244,12 @@ fn main() {
                         't' => {}
                         'c' => {}
                         'g' => {}
-                        'N' => {seq_n_count +=1;}
-                        'n' => {seq_n_count +=1;}
+                        'N' => {
+                            seq_n_count += 1;
+                        }
+                        'n' => {
+                            seq_n_count += 1;
+                        }
                         'R' => {}
                         'r' => {}
                         'Y' => {}
@@ -269,17 +280,23 @@ fn main() {
                     }
                 }
             }
-            previous_2nd_char = previous_char;
-            previous_char = cc;
-            // println!("{cc}");
+            previous_2nd_char = previous_char.clone();
+            previous_char = cc.clone();
         }
+        /*
+        必须每次迭代之后对buff重置，否则最后一次迭代无法充满
+        整个buff导致buff后边的内容是非法的但是又能被程序识别，
+        造成不可预知的错误。 */
+        buf.fill(0u8);
     }
     /*process the final sequence */
     let previous_seqid = get_seqid(&previous_defline);
+    // println!("[final]seqlen:{seq_len} --- previous_seqid {previous_seqid}");
     validate_seq_id(&previous_seqid);
+
     validate_seq_len(&previous_seqid, &seq_len, &MIN_LEN, &MAX_LEN);
     /* 最后一条序列的最后一个碱基存储在previous_char中 */
-    if (previous_char == 'N') || (previous_char == 'n') {
+    if (previous_2nd_char == 'N') || (previous_2nd_char == 'n') {
         eprintln!(
             "Found invalid 'N' at end of sequence '{}'. It should not end with 'N' or 'n'",
             previous_seqid
