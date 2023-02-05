@@ -133,7 +133,7 @@ fn main() {
         println!("Please specify fasta file");
         return;
     }
-    const BUF_SIZE: usize = 2012 * 1024 * 4;
+    const BUF_SIZE: usize = 1024 * 1024 * 4;
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
     let _fa_file: &String = &args[1];
