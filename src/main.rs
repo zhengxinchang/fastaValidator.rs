@@ -144,7 +144,14 @@ fn main() {
     let mut seq_len: i32 = -1;
     let mut seq_n_count: i32 = 0;
     let mut chr_pos: i32 = 0;
-    // let mut debug_char_list: String = String::from("");
+    
+    /*
+        TODO:
+        pre-define u8 code, can be used to comparison with nucleotide in u8  format directly. 
+    */
+    // const CHAR_END:u8 = '\0' as u8;
+
+
     while let Ok(num_bytes) = file.read(&mut buf) {
         if num_bytes == 0 {
             break;
@@ -217,11 +224,11 @@ fn main() {
                     seq_len = 0;
                     seq_n_count = 0;
                 }
-                /*开始存储defline */
+                /* 开始存储defline */
                 if is_in_defline {
                     defline.push(cc);
                 } else {
-                    /*这里是校验每个字符，统计长度 */
+                    /* 这里是校验每个字符，统计长度 */
                     chr_pos += 1;
                     if cc != '\n' {
                         seq_len = seq_len + 1; // 忽略换行符
