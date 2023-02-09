@@ -5,7 +5,7 @@ use std::fs;
 use std::io::Read;
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
-#[derive(Debug)]
+#[derive(Debug)] // drive debug 主要是用于fmt方式打印，默认struct是不能的。
 struct Report {
     seqid: String,
     organism: String,
@@ -16,6 +16,7 @@ struct Report {
 }
 
 impl Report {
+    // implement a methods (aka. constructor) for struct
     fn new() -> Self {
         Report {
             seqid: String::from(""),
@@ -28,12 +29,20 @@ impl Report {
     }
 }
 
-fn validate_seq_len(seqid: &String, seq_len: &i32, min_len: &i32, max_len: &i32) -> bool {
+fn validate_seq_len(
+    seqid: &String,
+    seq_len: &i32, /*借用本质上也是引用，所以需要用*解引用获得值 */
+    min_len: &i32,
+    max_len: &i32,
+) -> bool {
     if *seq_len == -1i32 {
+        /* == 没有实现自动解引用，所以就没办法直接比较，必须要解引用才可以。 */
         return true;
     }
-    if (seq_len < min_len) || (seq_len > max_len) {
-        eprintln!("For SARS-CoV-2 submission, sequence length must be between {min_len} and {max_len}. SeqLength of {seqid} is {seq_len}", );
+    if seq_len < min_len || seq_len > max_len {
+        eprintln!(
+            "For SARS-CoV-2 submission, sequence length must be between {min_len} and {max_len}. SeqLength of {seqid} is {seq_len}"
+        );
         return false;
     } else {
         return true;
@@ -45,20 +54,24 @@ fn validate_seq_id(seqid: &String) -> bool {
     match seqid.chars().nth(1) {
         Some(first_char) => {
             if !first_char.is_alphabetic() {
-                eprintln!("Found invalid character '{first_char}' in seqid '{seqid}'. Seqid must starts with a letter.");
+                eprintln!(
+                    "Found invalid character '{first_char}' in seqid '{seqid}'. Seqid must starts with a letter."
+                );
                 flag = false;
             }
             for c in seqid[1..].chars() {
                 if !(c.is_numeric()
                     || c.is_alphabetic()
-                    || (c == '_')
-                    || (c == '*')
-                    || (c == '#')
-                    || (c == '.')
-                    || (c == '-')
-                    || (c == ':'))
+                    || c == '_'
+                    || c == '*'
+                    || c == '#'
+                    || c == '.'
+                    || c == '-'
+                    || c == ':')
                 {
-                    eprintln!("Found invalid character: '{c}' in seqid: '{seqid}'. Only letters, numbers, '_', '-', '*', '#', '.', ':' are permitted.");
+                    eprintln!(
+                        "Found invalid character: '{c}' in seqid: '{seqid}'. Only letters, numbers, '_', '-', '*', '#', '.', ':' are permitted."
+                    );
                 }
             }
             let seqid_len = seqid.len();
@@ -80,7 +93,7 @@ fn validate_seq_n_pct(seq_len: &i32, previous_seqid: &String, seq_n_count: &i32)
     if *seq_len > 0 {
         // Rust有自动解引用的方法的，但是有的时候需要手动。
         let seq_n_pct = (*seq_n_count as f32) / (*seq_len as f32);
-        if seq_n_pct >= 0.50 {
+        if seq_n_pct >= 0.5 {
             let seq_n_pct_scaled = seq_n_pct * 100.0;
             eprintln!(
                 "For SARS-CoV-2 submission, the proportion of unknown bases in the sequence exceeds 50% is not allowed. Found {seq_n_count}/{seq_len}({seq_n_pct_scaled}%) for sequence '{previous_seqid}' "
@@ -95,14 +108,14 @@ fn validate_seqid_unique(report_list: &Vec<Report>) {
     for x in report_list.iter() {
         let seqid_value = x.seqid.as_str();
         if seqid_map.contains_key(seqid_value) {
-            eprintln!("Found duplicate sequence id: {seqid_value}")
+            eprintln!("Found duplicate sequence id: {seqid_value}");
         } else {
             seqid_map.insert(seqid_value, "");
         }
     }
 }
 
-/// Get squence id from defline
+/// Get sequence id from defline
 /// Using fancy_regex to enable look-head and look-behind
 fn get_seqid(defline: &String) -> String {
     let re = Regex::new(r"^(>.*?)[\s|\n]").unwrap();
@@ -112,19 +125,21 @@ fn get_seqid(defline: &String) -> String {
             Some(x) => {
                 return x.get(1).unwrap().as_str().to_string();
             }
-            None => return "".to_string(),
+            None => {
+                return "".to_string();
+            }
         },
         Err(_e) => {
             return "".to_string();
         }
-    };
+    }
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     //Validate the file path
     if args.len() < 2 {
-        println!("Please specify fasta file");
+        println!("Please specify Fasta file");
         return;
     }
     const BUF_SIZE: usize = 1024 * 1024 * 4;
@@ -132,7 +147,7 @@ fn main() {
     const MAX_LEN: i32 = 30_000;
     let _fa_file: &String = &args[1];
     let mut buf = [0u8; BUF_SIZE];
-    let mut file = fs::File::open(_fa_file).expect("Some Error Occurred, Can not open Fasta file.");
+    let mut file = fs::File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
     let mut previous_char: char = '@';
     let mut previous_2nd_char: char = '#';
     let mut report_list: Vec<Report> = Vec::new(); //collections type
@@ -144,13 +159,12 @@ fn main() {
     let mut seq_len: i32 = -1;
     let mut seq_n_count: i32 = 0;
     let mut chr_pos: i32 = 0;
-    
+
     /*
         TODO:
-        pre-define u8 code, can be used to comparison with nucleotide in u8  format directly. 
+        pre-define u8 code, can be used to comparison with nucleotide in u8 format directly.
     */
     // const CHAR_END:u8 = '\0' as u8;
-
 
     while let Ok(num_bytes) = file.read(&mut buf) {
         if num_bytes == 0 {
@@ -173,40 +187,37 @@ fn main() {
         //   5. 校验结尾N
         //
         for c in buf.iter() {
-            /* 初始化的buf为0u8, 因此当*c的值为 0u8的时候，说明这个buf没有占满，但是不需要处理了。
-            当判断 c 为 0u8 也就是字符 '\0'的时候，退出循环 */
-            if *c == '\0' as u8 {
+            /* 
+            初始化的buf为0u8, 因此当*c的值为 0u8的时候，
+            说明这个buf没有占满，但是不需要处理了。
+            当判断 c 为 0u8 也就是字符 '\0'的时候，退出循环。
+            */
+            if *c == ('\0' as u8) {
                 break;
             }
             let cc = *c as char;
-            /*统计行数并且重置chr的位置 */
+            /* 统计行数并且重置chr的位置 */
             if cc == '\n' {
                 line_number += 1;
                 chr_pos = 0; //换行重置为0
             }
             /* The major brach is to distinguish defline related chars from sequence related chars. */
             if cc == '>' {
-                if (previous_char == '@') || (previous_char == '\n') {
+                if previous_char == '@' || previous_char == '\n' {
                     is_in_defline = true;
                     defline.push(cc);
-                    /*判断序列是否为N结尾,程序靠后部分还有一段代码 */
+                    /* 判断序列是否为N结尾,程序靠后部分还有一段代码 */
                     let previous_seqid = get_seqid(&previous_defline);
-                    if (previous_2nd_char == 'N') || (previous_2nd_char == 'n') {
-                        eprintln!(
-                            "Found invalid 'N' at end of sequence '{}'. It should not end with 'N' or 'n'",
-                            previous_seqid
-                        )
+                    if previous_2nd_char == 'N' || previous_2nd_char == 'n' {
+                        eprintln!("Found invalid 'N' at end of sequence '{}'. It should not end with 'N' or 'n'", previous_seqid);
                     }
                 } else {
                     let previous_seqid = get_seqid(&previous_defline);
-                    eprintln!(
-                        "Found invalid '>' at sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.",
-                        previous_seqid
-                    )
+                    eprintln!("Found invalid '>' at sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.", previous_seqid);
                 }
             } else {
-                /*判断defline结束，开始处理defline */
-                if (previous_char == '\n') && (is_in_defline == true) {
+                /* 判断defline结束，开始处理defline */
+                if previous_char == '\n' && is_in_defline == true {
                     is_in_defline = false;
                     let previous_seqid = get_seqid(&previous_defline);
                     if previous_defline.len() > 0 {
@@ -215,10 +226,10 @@ fn main() {
                         let mut previous_report = Report::new();
                         previous_report.seqid = previous_seqid.clone();
                         report_list.push(previous_report);
-                        /*validate N percent, 循环退出后再次调用一次，处理最后的序列 */
+                        /* validate N percent, 循环退出后再次调用一次，处理最后的序列 */
                         validate_seq_n_pct(&seq_len, &previous_seqid, &seq_n_count);
                     }
-                    /*重置*/
+                    /* 重置 */
                     previous_defline = defline.clone();
                     defline = String::from("");
                     seq_len = 0;
@@ -234,12 +245,9 @@ fn main() {
                         seq_len = seq_len + 1; // 忽略换行符
                     }
                     /* 判断开始为N的报错 */
-                    if (seq_len == 1) && ((cc == 'N') || (cc == 'n')) {
+                    if seq_len == 1 && (cc == 'N' || cc == 'n') {
                         let previous_seqid_local = get_seqid(&previous_defline);
-                        eprintln!(
-                            "Found invalid 'N' at start of sequence '{}'. It should not start with 'N' or 'n'",
-                            previous_seqid_local
-                        )
+                        eprintln!("Found invalid 'N' at start of sequence '{}'. It should not start with 'N' or 'n'", previous_seqid_local);
                     }
                     match cc {
                         'A' => {}
@@ -281,7 +289,7 @@ fn main() {
                             eprintln!(
                                 "Found invalid char '{}' at Line {}, Column {}",
                                 cc, line_number, chr_pos
-                            )
+                            );
                         }
                     }
                 }
@@ -300,11 +308,11 @@ fn main() {
     validate_seq_id(&previous_seqid);
     validate_seq_len(&previous_seqid, &seq_len, &MIN_LEN, &MAX_LEN);
     /* 最后一条序列的最后一个碱基存储在previous_char中 */
-    if (previous_2nd_char == 'N') || (previous_2nd_char == 'n') {
+    if previous_2nd_char == 'N' || previous_2nd_char == 'n' {
         eprintln!(
             "Found invalid 'N' at end of sequence '{}'. It should not end with 'N' or 'n'",
             previous_seqid
-        )
+        );
     }
     validate_seq_n_pct(&seq_len, &previous_seqid, &seq_n_count);
     let mut previous_report = Report::new();
