@@ -179,7 +179,8 @@ fn main() {
 
     /* use pretty table to store messages */
     let mut msg_table = Table::new();
-    msg_table.add_row(row!["Error_type", "Message"]);
+    // msg_table.add_row(row!["Error_type", "Message"]);
+    msg_table.set_titles(row!["Error_type", "Message"]);
 
     while let Ok(num_bytes) = file.read(&mut buf) {
         if num_bytes == 0 {
@@ -361,7 +362,7 @@ fn main() {
         );
     }
 
-    if msg_table.len() > 1 {
+    if msg_table.len() > 0 {
         eprint!("{}", msg_table);
     }
 }
