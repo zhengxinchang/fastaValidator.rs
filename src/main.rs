@@ -1,11 +1,12 @@
 use fancy_regex::Regex;
 use std::collections::HashMap;
 use std::env;
+use std::fmt::Display;
 use std::fs;
 use std::io::Read;
 #[macro_use]
 extern crate prettytable;
-use prettytable::{Cell, Row, Table};
+use prettytable::Table;
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
 #[derive(Debug)] // drive debug 主要是用于fmt方式打印，默认struct是不能的。
@@ -29,6 +30,19 @@ impl Report {
             topology: String::from("linear"),
             strand: String::from("single"),
         }
+    }
+}
+
+/* Report is printable! 
+similar as __str__ in python
+*/
+impl Display for Report {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Seqid: '{}',  Organism: '{}',  gcode: '{}',  moltype: '{}',  topology: '{}',  strand: '{}'",
+            self.seqid, self.organism, self.gcode, self.moltype, self.topology, self.strand
+        )
     }
 }
 
@@ -360,6 +374,7 @@ fn main() {
             "{}\t{}\t{}\t{}\t{}\t{}",
             x.seqid, x.organism, x.gcode, x.moltype, x.topology, x.strand
         );
+        // println!("{}",x);
     }
 
     if msg_table.len() > 0 {
