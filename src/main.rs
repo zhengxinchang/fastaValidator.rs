@@ -310,7 +310,8 @@ fn main() {
                     }
                 } else {
                     let previous_seqid = get_seqid(&previous_defline);
-                    msg_table.add_row(row!["Nucleotide",format!("Found invalid '>' at sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.", previous_seqid)]);
+                    chr_pos +=1;
+                    msg_table.add_row(row!["Nucleotide",format!("Found invalid '>' at Line {}, Column {} in sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.",line_number,chr_pos, previous_seqid)]);
                 }
             } else {
                 /* 判断defline结束，开始处理defline */
