@@ -1,9 +1,11 @@
 use fancy_regex::Regex;
+use flate2::read::GzDecoder;
 use std::collections::HashMap;
 use std::env;
 use std::fmt::Display;
-use std::fs;
-use std::io::Read;
+use std::fs::{self, File};
+use std::io::{BufReader, Read};
+use std::process::exit;
 #[macro_use]
 extern crate prettytable;
 use prettytable::Table;
@@ -33,7 +35,7 @@ impl Report {
     }
 }
 
-/* Report is printable! 
+/* Report is printable!
 similar as __str__ in python
 */
 impl Display for Report {
@@ -160,6 +162,37 @@ fn get_seqid(defline: &String) -> String {
     }
 }
 
+/*
+    实现动态类型的思路
+    1. dyn trait 这个trait object的升级，是运行时的动态分发。跟泛型不一样，泛型是编译器展开，是静态多态。
+    2. 实现函数返回值的多个类型
+        通过enum来包装多个类型
+        函数返回值是Result<enumK,&str>
+        函数外部 使用 match enum类型变量，同时使用 let v = match enumK {} 方式来返回不同类型。
+*/
+enum FastaRead {
+    Gz(BufReader<flate2::read::GzDecoder<File>>),
+    Txt(File),
+}
+
+fn get_fa_reader(_fa_file: &String) -> Result<FastaRead, &str> {
+    /*函数最好返回一个Result */
+    let file = fs::File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
+    let binding = _fa_file.split(".").last().unwrap().to_lowercase();
+    let suffix = binding.as_str();
+    // println!("{}", suffix);
+    match suffix {
+        "gz" => Ok(FastaRead::Gz(BufReader::new(GzDecoder::new(file)))),
+        "fsa" => Ok(FastaRead::Txt(file)),
+        "fa" => Ok(FastaRead::Txt(file)),
+        "fasta" => Ok(FastaRead::Txt(file)),
+        "fna" => Ok(FastaRead::Txt(file)),
+        _ => {
+            Err("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ")
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     //Validate the file path
@@ -167,12 +200,27 @@ fn main() {
         println!("Please specify Fasta file");
         return;
     }
+
+    /* use pretty table to store messages */
+    let mut msg_table = Table::new();
+    // msg_table.add_row(row!["Error_type", "Message"]);
+    msg_table.set_titles(row!["Error_type", "Message"]);
+
     const BUF_SIZE: usize = 1024 * 1024 * 4;
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
     let _fa_file: &String = &args[1];
     let mut buf = [0u8; BUF_SIZE];
-    let mut file = fs::File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
+
+    /* compatible with flat file or gz format */
+    let mut file_reader = match get_fa_reader(&_fa_file) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{}", e);
+            exit(1)
+        }
+    }; /*这里直接unwrap解包 */
+
     let mut previous_char: char = '@';
     let mut previous_2nd_char: char = '#';
     let mut report_list: Vec<Report> = Vec::new(); //collections type
@@ -191,13 +239,28 @@ fn main() {
     */
     // const CHAR_END:u8 = '\0' as u8;
 
-    /* use pretty table to store messages */
-    let mut msg_table = Table::new();
-    // msg_table.add_row(row!["Error_type", "Message"]);
-    msg_table.set_titles(row!["Error_type", "Message"]);
+    loop {
+        /* let v = match u ... 这种模式放置了sub-scope中的内容无法再outer-scope中访问 */
+        let num_bytes = match file_reader {
+            FastaRead::Gz(ref mut t) => t.read(&mut buf),
+            /* 这里的t需要&mut File 类型  两种方法
+            1) match &mut file_reader;
+            2) ref mut t
+            File 和 BufReader<GzDecoder<File>> 这两种类型本来是无法用match的，因为类型不匹配.match只能匹配同类型的值
+            但是通过enum方式包装可以实现.
 
-    while let Ok(num_bytes) = file.read(&mut buf) {
-        if num_bytes == 0 {
+            关于第二种 ref mut t
+            是因为这个file_reader 就是可变引用，所以match的时候也要有可变引用？
+            */
+
+            /*
+            FastaRead::Txt(ref mut t) 这种形式是取出来t
+            */
+            FastaRead::Txt(ref mut t) => t.read(&mut buf), /*因为已经对file_reader unwrap了，错误在这一步被处理，所以不会有_的默认情况 */
+        };
+        // let Ok(num_bytes) = file_reader.read(&mut buf);
+
+        if num_bytes.unwrap() == 0 {
             break;
         }
         //  ## 运行逻辑

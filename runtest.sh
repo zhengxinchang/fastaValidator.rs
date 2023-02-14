@@ -1,1 +1,8 @@
- time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/GCF_000001405.40_GRCh38.p14_genomic.fna 
+echo "resources/test/0000231_seq.fsa"
+time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/0000231_seq.fsa
+
+echo "resources/test/GCF_000001405.40_GRCh38.p14_genomic.fna"
+time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/GCF_000001405.40_GRCh38.p14_genomic.fna > /dev/null
+
+echo "resources/test/0000231_seq.fsa.gz"
+time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/0000231_seq.fsa.gz
