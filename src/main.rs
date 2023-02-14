@@ -3,7 +3,7 @@ use flate2::read::GzDecoder;
 use std::collections::HashMap;
 use std::env;
 use std::fmt::Display;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufReader, Read};
 use std::process::exit;
 #[macro_use]
@@ -73,7 +73,6 @@ fn validate_seq_id(seqid: &String, msg_table: &mut Table) -> bool {
         Some(first_char) => {
             if !first_char.is_alphabetic() {
                 msg_table.add_row(row!["Defline",format!( "Found invalid character '{first_char}' in seqid '{seqid}'. Seqid must starts with a letter.")]);
-
                 flag = false;
             }
             for c in seqid[1..].chars() {
@@ -87,6 +86,7 @@ fn validate_seq_id(seqid: &String, msg_table: &mut Table) -> bool {
                     || c == ':')
                 {
                     msg_table.add_row(row!["Defline",format!( "Found invalid character: '{c}' in seqid: '{seqid}'. Only letters, numbers, '_', '-', '*', '#', '.', ':' are permitted.")]);
+                    flag = false;
                 }
             }
             let seqid_len = seqid.len();
@@ -97,6 +97,7 @@ fn validate_seq_id(seqid: &String, msg_table: &mut Table) -> bool {
                         "Seqid max length is 23, found length of {seqid_len} for seqid: {seqid}."
                     )
                 ]);
+                flag = false;
             }
         }
         None => {
@@ -177,7 +178,7 @@ enum FastaRead {
 
 fn get_fa_reader(_fa_file: &String) -> Result<FastaRead, &str> {
     /*函数最好返回一个Result */
-    let file = fs::File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
+    let file = File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
     let binding = _fa_file.split(".").last().unwrap().to_lowercase();
     let suffix = binding.as_str();
     // println!("{}", suffix);
@@ -213,6 +214,9 @@ fn main() {
     let mut buf = [0u8; BUF_SIZE];
 
     /* compatible with flat file or gz format */
+    /* 这里有必要存在这个变量，因为只有执行了这一句，把get_fa_reader返回值了，
+    才能一次性打开文件，如果在loop中，则是会多次打开。
+    */
     let mut file_reader = match get_fa_reader(&_fa_file) {
         Ok(t) => t,
         Err(e) => {
