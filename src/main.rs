@@ -176,21 +176,39 @@ enum FastaRead {
     Txt(File),
 }
 
-fn get_fa_reader(_fa_file: &String) -> Result<FastaRead, &str> {
+// fn get_fa_reader(_fa_file: &String) -> Result<FastaRead, &str> {
+//     /*函数最好返回一个Result */
+//     let file = File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
+//     let binding = _fa_file.split(".").last().unwrap().to_lowercase();
+//     let suffix = binding.as_str();
+//     // println!("{}", suffix);
+//     match suffix {
+//         "gz" => Ok(FastaRead::Gz(BufReader::new(GzDecoder::new(file)))),
+//         "fsa" => Ok(FastaRead::Txt(file)),
+//         "fa" => Ok(FastaRead::Txt(file)),
+//         "fasta" => Ok(FastaRead::Txt(file)),
+//         "fna" => Ok(FastaRead::Txt(file)),
+//         _ => {
+//             Err("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ")
+//         }
+//     }
+// }
+
+fn get_fa_reader2(_fa_file: &String) -> FastaRead {
     /*函数最好返回一个Result */
     let file = File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
     let binding = _fa_file.split(".").last().unwrap().to_lowercase();
     let suffix = binding.as_str();
     // println!("{}", suffix);
-    match suffix {
-        "gz" => Ok(FastaRead::Gz(BufReader::new(GzDecoder::new(file)))),
-        "fsa" => Ok(FastaRead::Txt(file)),
-        "fa" => Ok(FastaRead::Txt(file)),
-        "fasta" => Ok(FastaRead::Txt(file)),
-        "fna" => Ok(FastaRead::Txt(file)),
-        _ => {
-            Err("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ")
-        }
+
+    if suffix == "gz" {
+        return FastaRead::Gz(BufReader::new(GzDecoder::new(file)));
+    } else if (suffix == "fa") || (suffix == "fsa") || (suffix == "fna") || (suffix == "fasta") {
+        FastaRead::Txt(file)
+    } else {
+        /*必须有这一个分支处理其他情况否则报错 */
+        eprintln!("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ");
+        exit(1)
     }
 }
 
@@ -207,24 +225,28 @@ fn main() {
     // msg_table.add_row(row!["Error_type", "Message"]);
     msg_table.set_titles(row!["Error_type", "Message"]);
 
+    /* define constant values */
     const BUF_SIZE: usize = 1024 * 1024 * 4;
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
+
     let _fa_file: &String = &args[1];
     let mut buf = [0u8; BUF_SIZE];
-
     /* compatible with flat file or gz format */
     /* 这里有必要存在这个变量，因为只有执行了这一句，把get_fa_reader返回值了，
     才能一次性打开文件，如果在loop中，则是会多次打开。
     */
-    let mut file_reader = match get_fa_reader(&_fa_file) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("{}", e);
-            exit(1)
-        }
-    }; /*这里直接unwrap解包 */
 
+    // 这个是适配get_fa_reader 函数的，因为函数返回值是一个Result，所以就需要解包
+    // let mut file_reader = match get_fa_reader(&_fa_file) {
+    //     Ok(t) => t,
+    //     Err(e) => {
+    //         eprintln!("{}", e);
+    //         exit(1)
+    //     }
+    // }; /*这里直接unwrap解包 */
+    /*初始化fasta reader */
+    let mut file_reader2 = get_fa_reader2(&_fa_file);
     let mut previous_char: char = '@';
     let mut previous_2nd_char: char = '#';
     let mut report_list: Vec<Report> = Vec::new(); //collections type
@@ -245,7 +267,7 @@ fn main() {
 
     loop {
         /* let v = match u ... 这种模式放置了sub-scope中的内容无法再outer-scope中访问 */
-        let num_bytes = match file_reader {
+        let num_bytes = match file_reader2 {
             FastaRead::Gz(ref mut t) => t.read(&mut buf),
             /* 这里的t需要&mut File 类型  两种方法
             1) match &mut file_reader;
@@ -262,7 +284,6 @@ fn main() {
             */
             FastaRead::Txt(ref mut t) => t.read(&mut buf), /*因为已经对file_reader unwrap了，错误在这一步被处理，所以不会有_的默认情况 */
         };
-        // let Ok(num_bytes) = file_reader.read(&mut buf);
 
         if num_bytes.unwrap() == 0 {
             break;
@@ -310,7 +331,7 @@ fn main() {
                     }
                 } else {
                     let previous_seqid = get_seqid(&previous_defline);
-                    chr_pos +=1;
+                    chr_pos += 1;
                     msg_table.add_row(row!["Nucleotide",format!("Found invalid '>' at Line {}, Column {} in sequence(seqid:'{}'). This symbol is not allowed in the sequence. Please check whether the new-line character is missing.",line_number,chr_pos, previous_seqid)]);
                 }
             } else {
