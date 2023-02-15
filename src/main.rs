@@ -1,11 +1,11 @@
 use fancy_regex::Regex;
 use flate2::read::GzDecoder;
 use std::collections::HashMap;
-use std::env;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::process::exit;
+use std::{env, io};
 #[macro_use]
 extern crate prettytable;
 use prettytable::Table;
@@ -171,40 +171,45 @@ fn get_seqid(defline: &String) -> String {
         函数返回值是Result<enumK,&str>
         函数外部 使用 match enum类型变量，同时使用 let v = match enumK {} 方式来返回不同类型。
 */
-enum FastaRead {
-    Gz(BufReader<flate2::read::GzDecoder<File>>),
-    Txt(File),
+
+const BUF_SIZE: usize = 1024 * 1024 * 4;
+trait Readbuf {
+    fn read_buff(&mut self, buf: &mut [u8; BUF_SIZE]) -> io::Result<usize>;
 }
 
-// fn get_fa_reader(_fa_file: &String) -> Result<FastaRead, &str> {
-//     /*函数最好返回一个Result */
-//     let file = File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
-//     let binding = _fa_file.split(".").last().unwrap().to_lowercase();
-//     let suffix = binding.as_str();
-//     // println!("{}", suffix);
-//     match suffix {
-//         "gz" => Ok(FastaRead::Gz(BufReader::new(GzDecoder::new(file)))),
-//         "fsa" => Ok(FastaRead::Txt(file)),
-//         "fa" => Ok(FastaRead::Txt(file)),
-//         "fasta" => Ok(FastaRead::Txt(file)),
-//         "fna" => Ok(FastaRead::Txt(file)),
-//         _ => {
-//             Err("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ")
-//         }
-//     }
-// }
+struct Gzreader {
+    reader: BufReader<flate2::read::GzDecoder<File>>,
+}
 
-fn get_fa_reader2(_fa_file: &String) -> FastaRead {
+impl Readbuf for Gzreader {
+    fn read_buff(&mut self, buf: &mut [u8; BUF_SIZE]) -> io::Result<usize> {
+        self.reader.read(buf)
+    }
+}
+
+struct Txtreader {
+    reader: File,
+}
+
+impl Readbuf for Txtreader {
+    fn read_buff(&mut self, buf: &mut [u8; BUF_SIZE]) -> io::Result<usize> {
+        self.reader.read(buf)
+    }
+}
+
+fn get_fa_reader2(_fa_file: &String) -> Box<dyn Readbuf> {
     /*函数最好返回一个Result */
     let file = File::open(_fa_file).expect("Some Error Occurred, can not open Fasta file.");
     let binding = _fa_file.split(".").last().unwrap().to_lowercase();
     let suffix = binding.as_str();
-    // println!("{}", suffix);
-
     if suffix == "gz" {
-        return FastaRead::Gz(BufReader::new(GzDecoder::new(file)));
+        let gz = Gzreader {
+            reader: BufReader::new(GzDecoder::new(file)),
+        };
+        return Box::new(gz);
     } else if (suffix == "fa") || (suffix == "fsa") || (suffix == "fna") || (suffix == "fasta") {
-        FastaRead::Txt(file)
+        let txt = Txtreader { reader: file };
+        return Box::new(txt);
     } else {
         /*必须有这一个分支处理其他情况否则报错 */
         eprintln!("The suffix of sequence file should be one of [.fa, .fsa, .fna, .fasta] or it should be a combination of those with .gz ");
@@ -226,7 +231,6 @@ fn main() {
     msg_table.set_titles(row!["Error_type", "Message"]);
 
     /* define constant values */
-    const BUF_SIZE: usize = 1024 * 1024 * 4;
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
 
@@ -267,23 +271,7 @@ fn main() {
 
     loop {
         /* let v = match u ... 这种模式放置了sub-scope中的内容无法再outer-scope中访问 */
-        let num_bytes = match file_reader2 {
-            FastaRead::Gz(ref mut t) => t.read(&mut buf),
-            /* 这里的t需要&mut File 类型  两种方法
-            1) match &mut file_reader;
-            2) ref mut t
-            File 和 BufReader<GzDecoder<File>> 这两种类型本来是无法用match的，因为类型不匹配.match只能匹配同类型的值
-            但是通过enum方式包装可以实现.
-
-            关于第二种 ref mut t
-            是因为这个file_reader 就是可变引用，所以match的时候也要有可变引用？
-            */
-
-            /*
-            FastaRead::Txt(ref mut t) 这种形式是取出来t
-            */
-            FastaRead::Txt(ref mut t) => t.read(&mut buf), /*因为已经对file_reader unwrap了，错误在这一步被处理，所以不会有_的默认情况 */
-        };
+        let num_bytes = file_reader2.read_buff(&mut buf);
 
         if num_bytes.unwrap() == 0 {
             break;
