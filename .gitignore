@@ -7,7 +7,6 @@
 /.idea
 /.vscode/
 /vendor/
-Cargo.lock
 a
 b
 aa

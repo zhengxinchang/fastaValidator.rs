@@ -6,12 +6,15 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::process::exit;
 use std::{env, io};
-#[macro_use]
+#[macro_use] // Attribute
 extern crate prettytable;
 use prettytable::Table;
+
+
+const BUF_SIZE: usize = 1024 * 1024 * 4;
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
-#[derive(Debug)] // drive debug 主要是用于fmt方式打印，默认struct是不能的。
+#[derive(Debug)] // Attribute drive debug 主要是用于fmt方式打印，默认struct是不能的。
 struct Report {
     seqid: String,
     organism: String,
@@ -172,7 +175,7 @@ fn get_seqid(defline: &String) -> String {
         函数外部 使用 match enum类型变量，同时使用 let v = match enumK {} 方式来返回不同类型。
 */
 
-const BUF_SIZE: usize = 1024 * 1024 * 4;
+
 trait Readbuf {
     fn read_buff(&mut self, buf: &mut [u8; BUF_SIZE]) -> io::Result<usize>;
 }
