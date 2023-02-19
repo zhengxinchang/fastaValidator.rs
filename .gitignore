@@ -6,3 +6,11 @@
 /resources/
 /.idea
 /.vscode/
+/vendor/
+Cargo.lock
+a
+b
+aa
+bb
+test*
+err*
