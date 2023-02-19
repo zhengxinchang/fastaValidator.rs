@@ -6,12 +6,12 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::process::exit;
 use std::{env, io};
-#[macro_use]
+#[macro_use] // Attribute
 extern crate prettytable;
 use prettytable::Table;
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
-#[derive(Debug)] // drive debug 主要是用于fmt方式打印，默认struct是不能的。
+#[derive(Debug)] // Attribute drive debug 主要是用于fmt方式打印，默认struct是不能的。
 struct Report {
     seqid: String,
     organism: String,
