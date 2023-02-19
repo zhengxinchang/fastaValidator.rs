@@ -15,6 +15,12 @@ crlf:
 	@echo "resources/test/0000231_seq.fsa CRLF"
 	time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 resources/test/0000231_seq_CRLF.fsa
 
+h:
+	time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 -h
+
+ver:
+	time ./target/x86_64-unknown-linux-musl/release/checkFastaCOVID19 -V
+
 
 # 防止与命令相同的同名文件
 .PHONY: build test 

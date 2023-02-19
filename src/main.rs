@@ -5,13 +5,37 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::process::exit;
-use std::{env, io};
+use std::{env, io, path};
 #[macro_use] // Attribute
 extern crate prettytable;
+use clap::Parser;
 use prettytable::Table;
 
-
 const BUF_SIZE: usize = 1024 * 1024 * 4;
+use std::path::{PathBuf,Path};
+
+#[derive(Parser, Debug)]
+#[command(name = "Validate FASTA file for SARS-CoV-2")]
+#[command(author = "Xinchang Zheng (zhengxinchang@big.ac.cn)")]
+#[command(version = "1.0")]
+#[command(about = "
+This program is designed to validate SARS-CoV-2 sequences in FASTA format. 
+It is a part of Submission Pipeline of GenBase database in National Genomics Data Center(NGDC).
+\nAuthor: Xinchang Zheng <zhengxinchang@big.ac.cn>
+", long_about = None)]
+struct Cli {
+    /// Path to FASTA file
+    // 必选位置参数
+    fa_path: PathBuf,
+
+    /// Path to Config.json [optional]
+    // 可选位置参数
+    conf_path: Option<PathBuf>,
+
+    #[arg(short, long)]
+    outprefix: Option<PathBuf>,
+}
+
 /// Report struct contains meta data of sequence
 /// In COVID19 version, default values are assigned except seqid.
 #[derive(Debug)] // Attribute drive debug 主要是用于fmt方式打印，默认struct是不能的。
@@ -166,6 +190,18 @@ fn get_seqid(defline: &String) -> String {
     }
 }
 
+pub fn absolute_path(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    let path = path.as_ref();
+
+    let absolute_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir()?.join(path)
+    };
+
+    Ok(absolute_path)
+}
+
 /*
     实现动态类型的思路
     1. dyn trait 这个trait object的升级，是运行时的动态分发。跟泛型不一样，泛型是编译器展开，是静态多态。
@@ -174,7 +210,6 @@ fn get_seqid(defline: &String) -> String {
         函数返回值是Result<enumK,&str>
         函数外部 使用 match enum类型变量，同时使用 let v = match enumK {} 方式来返回不同类型。
 */
-
 
 trait Readbuf {
     fn read_buff(&mut self, buf: &mut [u8; BUF_SIZE]) -> io::Result<usize>;
@@ -221,12 +256,48 @@ fn get_fa_reader2(_fa_file: &String) -> Box<dyn Readbuf> {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    //Validate the file path
-    if args.len() < 2 {
-        println!("Please specify Fasta file");
-        return;
+    let cli = Cli::parse();
+    // println!("{:?}",cli);
+
+    // handle fa_file
+    let _fa_file: PathBuf = cli.fa_path;
+    if !_fa_file.is_file() {
+        println!("Ivalid FASTA file path: {} ", _fa_file.to_str().unwrap());
+        exit(1)
     }
+
+    let _conf_fle: Option<PathBuf> = match cli.conf_path {
+        Some(t) => {
+            if !t.is_file() {
+                println!("Invalid Config file path: {} ", t.to_str().unwrap());
+                exit(1)
+            }
+            Some(t)
+        }
+        None => {None},
+    };
+
+    // handel -o option
+    let mut _outprefix_parent = match cli.outprefix {
+        Some(t) => {
+            let mut _outprefix_ancestors = t.ancestors().clone();
+            _outprefix_ancestors.next();
+            let mut _outprefix_parent = _outprefix_ancestors.next().unwrap().to_path_buf();
+            // println!("{:?}", _outprefix_parent);
+            let _outprefix_parent_abs = absolute_path(_outprefix_parent).unwrap();
+            // println!("{:?}", _outprefix_parent_abs);
+            if !_outprefix_parent_abs.is_dir() {
+                println!(
+                    "Output directory does not exists: {} ",
+                    _outprefix_parent_abs.to_str().unwrap()
+                );
+                exit(1);
+                // Err();
+            }
+            Some(_outprefix_parent_abs)
+        }
+        None => None,
+    };
 
     /* use pretty table to store messages */
     let mut msg_table = Table::new();
@@ -237,7 +308,7 @@ fn main() {
     const MIN_LEN: i32 = 50;
     const MAX_LEN: i32 = 30_000;
 
-    let _fa_file: &String = &args[1];
+    // let _fa_file: &String = &args[1];
     let mut buf = [0u8; BUF_SIZE];
     /* compatible with flat file or gz format */
     /* 这里有必要存在这个变量，因为只有执行了这一句，把get_fa_reader返回值了，
@@ -253,7 +324,7 @@ fn main() {
     //     }
     // }; /*这里直接unwrap解包 */
     /*初始化fasta reader */
-    let mut file_reader2 = get_fa_reader2(&_fa_file);
+    let mut file_reader2 = get_fa_reader2(&_fa_file.to_str().unwrap().to_string());
     let mut previous_char: char = '@';
     let mut previous_2nd_char: char = '#';
     let mut report_list: Vec<Report> = Vec::new(); //collections type
@@ -400,7 +471,7 @@ fn main() {
                         'v' => {}
                         'D' => {}
                         'd' => {}
-                        '\r'=>{}
+                        '\r' => {}
                         '\n' => {} // \n必须允许，不然每次换行都报错
                         _ => {
                             msg_table.add_row(row![
