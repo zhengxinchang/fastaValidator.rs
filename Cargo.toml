@@ -9,6 +9,7 @@ edition = "2021"
 fancy-regex = "*"
 flate2 = "1.0.25"
 prettytable-rs = "^0.10"
+clap={version="*",features=["derive"]}
 # [profile.release.build]
 # target = "x86_64-unknown-linux-musl"
 
